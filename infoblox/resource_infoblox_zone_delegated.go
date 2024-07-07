@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	ibclient "github.com/infobloxopen/infoblox-go-client/v2"
+	"github.com/infobloxopen/infoblox-go-client/v2/utils"
 )
 
 func resourceZoneDelegated() *schema.Resource {
@@ -25,6 +26,12 @@ func resourceZoneDelegated() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "The FQDN of the delegated zone.",
+			},
+			"view": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Computed:    true,
+				Description: "The name of the DNS view in which the zone resides. Example: 'external'",
 			},
 			"delegate_to": {
 				Type:     schema.TypeSet,
@@ -131,6 +138,11 @@ func resourceZoneDelegatedCreate(d *schema.ResourceData, m interface{}) error {
 		return fmt.Errorf("Error creating Zone Delegated: %w", err)
 	}
 
+	zoneDelegated.View = utils.StringPtr(d.Get("view").(string))
+	if *zoneDelegated.View == "" {
+		zoneDelegated.View = utils.StringPtr("default")
+	}
+
 	d.Set("delegate_to", computedDelegations)
 
 	d.SetId(zoneDelegated.Ref)
@@ -173,8 +185,22 @@ func resourceZoneDelegatedRead(d *schema.ResourceData, m interface{}) error {
 		delegations = append(delegations, ns)
 	}
 
-	d.Set("fqdn", zoneDelegatedObj.Fqdn)
-	d.Set("delegate_to", delegations)
+	err = d.Set("fqdn", zoneDelegatedObj.Fqdn)
+	if err != nil {
+		return fmt.Errorf("Setting FQDN failed: %w", err)
+	}
+
+	if zoneDelegatedObj.View != nil {
+		err = d.Set("view", *zoneDelegatedObj.View)
+		if err != nil {
+			return fmt.Errorf("Getting View failed: %w", err)
+		}
+	}
+
+	err = d.Set("delegate_to", delegations)
+	if err != nil {
+		return fmt.Errorf("Getting delegate name servers failed: %w", err)
+	}
 
 	d.SetId(zoneDelegatedObj.Ref)
 
