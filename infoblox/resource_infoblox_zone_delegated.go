@@ -89,12 +89,14 @@ func computeDelegations(delegations []interface{}) ([]ibclient.NameServer, []map
 		var ns ibclient.NameServer
 		delegationMap := delegation.(map[string]interface{})
 		ns.Name = delegationMap["name"].(string)
-		lookupHosts, err := net.LookupHost(delegationMap["name"].(string))
-		if err != nil {
-			return nil, nil, fmt.Errorf("Failed to resolve delegate_to: %w", err)
+		if delegationMap["address"].(string) == "" {
+			lookupHosts, err := net.LookupHost(delegationMap["name"].(string))
+			if err != nil {
+				return nil, nil, fmt.Errorf("Failed to resolve delegate_to: %w", err)
+			}
+			sort.Strings(lookupHosts)
+			ns.Address = lookupHosts[0]
 		}
-		sort.Strings(lookupHosts)
-		ns.Address = lookupHosts[0]
 		delegationMap["address"] = ns.Address
 		nameServers = append(nameServers, ns)
 		computedDelegations = append(computedDelegations, delegationMap)
